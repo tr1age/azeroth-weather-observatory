@@ -6,7 +6,7 @@ local zoneRows, pageLabel, feedLabel, previousButton, nextButton = {}, nil, nil,
 local page = 1
 local selectedWeather, selectedContinent, selectedZone, searchText = "all", "All continents", "All zones", ""
 local searchBox, emptyLabel, conditionIcon, currentZoneText
-local weatherIcons = {clear="|TInterface\\Icons\\ability_mage_firestarter:18:18|t", rain="|TInterface\\Icons\\spell_nature_giftofthewaterspirit:18:18|t", snow="|TInterface\\Icons\\Spell_Frost_IceStorm:18:18|t", sandstorm="|TInterface\\Icons\\Spell_Nature_EarthShock:18:18|t", miscellaneous="|TInterface\\Icons\\INV_Misc_QuestionMark:18:18|t", unknown="—"}
+local weatherIcons = {clear="|TInterface\\Icons\\INV_QirajIdol_Sun:18:18:0:0:64:64:4:60:0:43|t", rain="|TInterface\\Icons\\spell_nature_giftofthewaterspirit:18:18|t", snow="|TInterface\\Icons\\Spell_Frost_IceStorm:18:18|t", sandstorm="|TInterface\\Icons\\Spell_Nature_EarthShock:18:18|t", miscellaneous="|TInterface\\Icons\\INV_Misc_QuestionMark:18:18|t", unknown="—"}
 local weatherNames = {clear="Clear", rain="Rain", snow="Snow", sandstorm="Sand", miscellaneous="Miscellaneous", unknown="Unknown"}
 local continents, zoneCatalog = {}, {}
 local function addZones(continent, list) for zone in list:gmatch("[^|]+") do continents[zone:lower()] = continent; zoneCatalog[#zoneCatalog+1] = {zone=zone, continent=continent} end end
