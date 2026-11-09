@@ -1,0 +1,9 @@
+# Azeroth Weather Observatory 0.9.1
+
+Open the report with /awo or the minimap spyglass. Search zones, choose Eastern Kingdoms or Kalimdor, or select a zone by its first letter, filter by weather and use the arrows to browse. The website uses the most reported condition from the past 30 minutes per realm, counting each installation once; ties use the latest report. If no recent reports exist, the latest older report is shown. One community result per zone is shown with its realm, layer (unknown when unavailable) and age. Reports are grouped by continent and alphabetized within each continent; zones without reports show No reported weather.
+
+The optional companion shares your observations after WoW writes its saved data when you log out or use /reload. It also downloads community reports; restart WoW or use /reload to see the latest downloaded snapshot. This is not continuously live, and a report may be out of date. No reports exist for zones nobody has observed. The addon does not have reliable layer information.
+
+Manual reports are accepted only when they match the game’s current weather reading. If the reading is unavailable or unknown, the addon cannot check or save a manual report. This is a local check only: the public website cannot independently verify submissions or prevent a modified client from sending false data. For manual sharing without the companion, click Share manually, copy the selected report with Ctrl+C (Mac: Command+C), then paste it into the form on weather.craftingworlds.com. /awo minimap hides or shows the minimap button; drag the button to move it.
+
+Install: exit WoW, copy AzerothWeather into World of Warcraft/_forever_/Interface/AddOns, start the game and enable the addon. Install the separate companion to share and receive reports. WoW's weather API may not work on every client; test in game.
