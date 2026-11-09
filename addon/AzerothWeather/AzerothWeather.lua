@@ -5,7 +5,7 @@ local frame, conditionText, detailText, statusText, exportBox, minimapButton
 local zoneRows, pageLabel, feedLabel, previousButton, nextButton = {}, nil, nil, nil, nil
 local page = 1
 local selectedWeather, selectedContinent, selectedZone, searchText = "all", "All continents", "All zones", ""
-local searchBox, emptyLabel, conditionIcon
+local searchBox, emptyLabel, conditionIcon, currentZoneText
 local weatherIcons = {clear="|TInterface\\Icons\\ability_mage_firestarter:18:18|t", rain="|TInterface\\Icons\\spell_nature_giftofthewaterspirit:18:18|t", snow="|TInterface\\Icons\\Spell_Frost_IceStorm:18:18|t", sandstorm="|TInterface\\Icons\\Spell_Nature_EarthShock:18:18|t", miscellaneous="|TInterface\\Icons\\INV_Misc_QuestionMark:18:18|t", unknown="—"}
 local weatherNames = {clear="Clear", rain="Rain", snow="Snow", sandstorm="Sand", miscellaneous="Miscellaneous", unknown="Unknown"}
 local continents, zoneCatalog = {}, {}
@@ -132,12 +132,14 @@ local function updateUI()
         if conditionIcon then conditionIcon:SetText(weatherIcons[current.weather] or weatherIcons.unknown) end
         local where = current.zone
         if current.subzone ~= "" then where = where .. " · " .. current.subzone end
-        detailText:SetText(where .. "  ·  Realm: " .. displayRealm(current.realm) .. "  ·  Layer: Unknown  ·  " .. ageLabel(current.at))
+        currentZoneText:SetText(where)
+        detailText:SetText("Realm: " .. displayRealm(current.realm) .. "  ·  Layer: Unknown  ·  " .. ageLabel(current.at))
         statusText:SetText(message)
         exportBox:SetText(encode(current))
     else
         conditionText:SetText("Unknown")
         if conditionIcon then conditionIcon:SetText(weatherIcons.unknown) end
+        currentZoneText:SetText("Waiting for your location")
         detailText:SetText("No current observation")
         statusText:SetText(message)
         exportBox:SetText("")
@@ -275,10 +277,14 @@ local function createUI()
     local close=CreateFrame("Button",nil,frame,"UIPanelCloseButton"); close:SetPoint("TOPRIGHT",-4,-3)
     local subtitle=frame:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall"); subtitle:SetPoint("TOPLEFT",63,-40); subtitle:SetText("Weather reports from across Azeroth"); subtitle:SetTextColor(.55,.75,.82)
     sectionLine(frame,-58)
-    conditionIcon=frame:CreateFontString(nil,"OVERLAY","GameFontHighlightLarge"); conditionIcon:SetPoint("TOPLEFT",28,-73); conditionIcon:SetTextColor(.53,.84,.92)
-    conditionText=frame:CreateFontString(nil,"OVERLAY","GameFontHighlightLarge"); conditionText:SetPoint("TOPLEFT",70,-72); conditionText:SetTextColor(.90,.95,1)
-    detailText=frame:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall"); detailText:SetPoint("TOPLEFT",70,-96); detailText:SetWidth(500); detailText:SetJustifyH("LEFT"); detailText:SetTextColor(.65,.81,.88)
-    statusText=frame:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall"); statusText:SetPoint("TOPLEFT",25,-120); statusText:SetWidth(540); statusText:SetJustifyH("LEFT"); statusText:SetTextColor(.64,.78,.82)
+    local weatherPanel=frame:CreateTexture(nil,"BACKGROUND"); weatherPanel:SetPoint("TOPLEFT",24,-65); weatherPanel:SetSize(562,71); weatherPanel:SetColorTexture(.07,.20,.27,.95)
+    local accent=frame:CreateTexture(nil,"ARTWORK"); accent:SetPoint("TOPLEFT",24,-65); accent:SetSize(3,71); accent:SetColorTexture(.40,.78,.83,1)
+    local locationLabel=frame:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall"); locationLabel:SetPoint("TOPLEFT",38,-70); locationLabel:SetText("YOUR WEATHER  ·  CURRENT ZONE"); locationLabel:SetTextColor(.54,.83,.87)
+    currentZoneText=frame:CreateFontString(nil,"OVERLAY","GameFontHighlightLarge"); currentZoneText:SetPoint("TOPLEFT",38,-84); currentZoneText:SetWidth(350); currentZoneText:SetJustifyH("LEFT"); currentZoneText:SetWordWrap(false); currentZoneText:SetTextColor(.94,.97,1)
+    conditionIcon=frame:CreateFontString(nil,"OVERLAY","GameFontHighlightLarge"); conditionIcon:SetPoint("TOPLEFT",412,-84); conditionIcon:SetTextColor(.53,.84,.92)
+    conditionText=frame:CreateFontString(nil,"OVERLAY","GameFontHighlightLarge"); conditionText:SetPoint("TOPLEFT",438,-84); conditionText:SetWidth(130); conditionText:SetJustifyH("LEFT"); conditionText:SetWordWrap(false); conditionText:SetTextColor(.90,.95,1)
+    detailText=frame:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall"); detailText:SetPoint("TOPLEFT",38,-103); detailText:SetWidth(530); detailText:SetJustifyH("LEFT"); detailText:SetWordWrap(false); detailText:SetTextColor(.69,.84,.89)
+    statusText=frame:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall"); statusText:SetPoint("TOPLEFT",38,-120); statusText:SetWidth(530); statusText:SetJustifyH("LEFT"); statusText:SetWordWrap(false); statusText:SetTextColor(.55,.75,.79)
     sectionLine(frame,-142)
     local listTitle=frame:CreateFontString(nil,"OVERLAY","GameFontNormal"); listTitle:SetPoint("TOPLEFT",25,-153); listTitle:SetText("WEATHER ACROSS AZEROTH"); listTitle:SetTextColor(.72,.86,.91)
     feedLabel=frame:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall"); feedLabel:SetPoint("TOPRIGHT",-25,-155); feedLabel:SetTextColor(.55,.72,.77)
