@@ -96,7 +96,7 @@ def main():
     tk.Label(body,text='AZEROTH WEATHER',bg='#092b3d',fg='#e6f2ed',font=('Segoe UI',18,'bold')).pack(anchor='w')
     tk.Label(body,text='Companion for Windows',bg='#092b3d',fg='#9fd2da',font=('Segoe UI',11)).pack(anchor='w',pady=(0,16))
     info=('Share weather reports automatically after you reload or log out of WoW. Community reports update when you reload.\n\n'
-          'Installing enables public sharing of weather, zone, realm, time, source, optional intensity and a random installation ID. '
+          'Installing enables public sharing of weather, zone, realm, estimated layer, time, source, optional intensity and a random installation ID. '
           'No character or account name is sent. The companion starts with Windows.')
     tk.Label(body,text=info,bg='#092b3d',fg='#d0e1e3',font=('Segoe UI',10),wraplength=452,justify='left').pack(anchor='w')
     status=tk.StringVar(value='The companion window stays open while sharing is enabled.')

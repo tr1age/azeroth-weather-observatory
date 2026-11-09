@@ -6,7 +6,7 @@ local zoneRows, pageLabel, feedLabel, previousButton, nextButton = {}, nil, nil,
 local page = 1
 local selectedWeather, selectedContinent, selectedZone, searchText = "all", "All continents", "All zones", ""
 local searchBox, emptyLabel, conditionIcon, currentZoneText
-local weatherIcons = {clear="|TInterface\\Icons\\INV_QirajIdol_Sun:18:18:0:0:64:64:4:60:0:43|t", rain="|TInterface\\Icons\\spell_nature_giftofthewaterspirit:18:18|t", snow="|TInterface\\Icons\\Spell_Frost_IceStorm:18:18|t", sandstorm="|TInterface\\Icons\\Spell_Nature_EarthShock:18:18|t", miscellaneous="|TInterface\\Icons\\INV_Misc_QuestionMark:18:18|t", unknown="—"}
+local weatherIcons = {clear="|TInterface\\AddOns\\AzerothWeather\\Media\\Clear:18:18|t", rain="|TInterface\\Icons\\spell_nature_giftofthewaterspirit:18:18|t", snow="|TInterface\\Icons\\Spell_Frost_IceStorm:18:18|t", sandstorm="|TInterface\\Icons\\Spell_Nature_EarthShock:18:18|t", miscellaneous="|TInterface\\Icons\\INV_Misc_QuestionMark:18:18|t", unknown="—"}
 local weatherNames = {clear="Clear", rain="Rain", snow="Snow", sandstorm="Sand", miscellaneous="Miscellaneous", unknown="Unknown"}
 local continents, zoneCatalog = {}, {}
 local function addZones(continent, list) for zone in list:gmatch("[^|]+") do continents[zone:lower()] = continent; zoneCatalog[#zoneCatalog+1] = {zone=zone, continent=continent} end end
@@ -22,6 +22,8 @@ end
 local ROW_COUNT = 5
 local ready = false
 local current
+local inferredLayer, layerVotes, layerSeen = nil, {}, {}
+local observe
 local lastSignature, lastSavedAt = nil, 0
 local lastManualAt = 0
 local message = "Waiting for a weather observation."
@@ -48,6 +50,41 @@ local function classify(kind)
     end
     return "unknown"
 end
+-- A layer is inferred from agreeing nearby NPC identifiers, never from player names.
+-- The numeric pair is an estimate, not a Blizzard-provided layer number.
+local function resetLayer()
+    inferredLayer, layerVotes, layerSeen = nil, {}, {}
+end
+local function sampleLayer(unit)
+    if type(unit) ~= "string" or not UnitGUID then return end
+    if IsInInstance then local ok, inside=pcall(IsInInstance); if not ok or isSecret(inside) or inside then return end end
+    if UnitPlayerControlled then local ok, controlled=pcall(UnitPlayerControlled, unit); if not ok or isSecret(controlled) or controlled then return end end
+    local ok, guid=pcall(UnitGUID, unit)
+    if not ok or isSecret(guid) or type(guid) ~= "string" or layerSeen[guid] then return end
+    local server, zoneId=guid:match("^Creature%-%d+%-(%d+)%-%d+%-(%d+)%-%d+%-%x+$")
+    if not server then server, zoneId=guid:match("^Vehicle%-%d+%-(%d+)%-%d+%-(%d+)%-%d+%-%x+$") end
+    if not server or #server>10 or #zoneId>10 then return end
+    layerSeen[guid]=true
+    local id=server .. "-" .. zoneId
+    layerVotes[#layerVotes+1]=id
+    if #layerVotes>5 then table.remove(layerVotes,1) end
+    local count=0; for _, v in ipairs(layerVotes) do if v==id then count=count+1 end end
+    if id~=inferredLayer and count >= (inferredLayer and 3 or 2) then
+        inferredLayer=id
+        if ready and observe then observe() end
+    end
+end
+local function sampleNearby()
+    sampleLayer("target"); sampleLayer("mouseover")
+    if C_NamePlate and C_NamePlate.GetNamePlates then
+        local ok, plates=pcall(C_NamePlate.GetNamePlates)
+        if ok and type(plates)=="table" and not isSecret(plates) then
+            for _, plate in ipairs(plates) do
+                if not isSecret(plate) then local valid, unit=pcall(function() return plate.namePlateUnitToken end); if valid then sampleLayer(unit) end end
+            end
+        end
+    end
+end
 local function jsonString(value)
     return '"' .. tostring(value):gsub('[%z\1-\31\\"]', function(c)
         local replacements = {['\\']='\\\\', ['"']='\\"', ['\n']='\\n', ['\r']='\\r', ['\t']='\\t'}
@@ -63,6 +100,7 @@ local function encode(record)
         '"observed_at":' .. jsonString(date('!%Y-%m-%dT%H:%M:%SZ', record.at)),
         '"source":' .. jsonString(record.source),
     }
+    if record.layer then fields[#fields + 1] = '"layer":' .. jsonString(record.layer) end
     if record.intensity then fields[#fields + 1] = '"intensity":' .. tostring(record.intensity) end
     return '{' .. table.concat(fields, ',') .. '}'
 end
@@ -106,7 +144,7 @@ local function refreshZoneReports()
             row.zone:SetText(r.zone .. "  ·  " .. continent(r.zone))
             row.icon:SetText(weatherIcons[r.weather] or weatherIcons.unknown)
             if r.at then
-                row.realm:SetText("Realm: " .. displayRealm(r.realm) .. "  ·  Layer: " .. (r.layer and tostring(r.layer) or "Unknown"))
+                row.realm:SetText("Realm: " .. displayRealm(r.realm) .. "  ·  Layer: " .. (r.layer and (tostring(r.layer) .. " (estimated)") or "Unknown"))
                 row.weather:SetText(weatherNames[r.weather] or "Unknown")
                 local count=tonumber(r.count) or 0
                 local summary = count>0 and (r.tied and "Tied · latest" or (count .. (count==1 and " reporter" or " reporters"))) or "Reported"
@@ -133,7 +171,7 @@ local function updateUI()
         local where = current.zone
         if current.subzone ~= "" then where = where .. " · " .. current.subzone end
         currentZoneText:SetText(where)
-        detailText:SetText("Realm: " .. displayRealm(current.realm) .. "  ·  Layer: Unknown  ·  " .. ageLabel(current.at))
+        detailText:SetText("Realm: " .. displayRealm(current.realm) .. "  ·  Layer: " .. (current.layer and (current.layer .. " (estimated)") or "Unknown") .. "  ·  " .. ageLabel(current.at))
         statusText:SetText(message)
         exportBox:SetText(encode(current))
     else
@@ -155,9 +193,9 @@ local function saveObservation(weather, intensity, source)
         updateUI(); return
     end
     if source == "manual" then lastManualAt = now end
-    local record = {zone=zone, subzone=subzone, realm=realm, weather=weather, intensity=intensity, at=now, source=source}
+    local record = {zone=zone, subzone=subzone, realm=realm, weather=weather, intensity=intensity, at=now, source=source, layer=inferredLayer}
     current = record
-    local signature = table.concat({zone, subzone, realm, weather, tostring(intensity or ""), source}, "|")
+    local signature = table.concat({zone, subzone, realm, weather, tostring(intensity or ""), source, inferredLayer or ""}, "|")
     if source == "manual" or signature ~= lastSignature or now - lastSavedAt >= 300 then
         local log = AzerothWeatherDB.observations
         log[#log + 1] = record
@@ -182,7 +220,7 @@ local function readWeather()
     if ok then return result end
     return nil
 end
-local function observe()
+observe = function()
     if not ready then return end
     local result=readWeather()
     if not result then
@@ -378,17 +416,27 @@ events:RegisterEvent("ZONE_CHANGED_NEW_AREA")
 events:RegisterEvent("ZONE_CHANGED")
 events:RegisterEvent("ZONE_CHANGED_INDOORS")
 -- Register defensively because events can vary between clients.
-pcall(function() events:RegisterEvent("WEATHER_CHANGED") end)
+for _, event in ipairs({"WEATHER_CHANGED", "NAME_PLATE_UNIT_ADDED", "PLAYER_TARGET_CHANGED", "UPDATE_MOUSEOVER_UNIT", "SHARD_TRANSFER", "SHARD_TRANSFER_IMMINENT"}) do
+    pcall(function() events:RegisterEvent(event) end)
+end
 events:SetScript("OnEvent", function(_, event, arg)
     if event == "ADDON_LOADED" and arg == ADDON then
         if type(AzerothWeatherDB) ~= "table" then AzerothWeatherDB = {} end
         if type(AzerothWeatherDB.observations) ~= "table" then AzerothWeatherDB.observations = {} end
         createUI(); ready = true; chat("Loaded. Type /awo for your weather report.")
-    elseif ready and event ~= "ADDON_LOADED" then observe() end
+    elseif ready and event ~= "ADDON_LOADED" then
+        if event=="NAME_PLATE_UNIT_ADDED" then sampleLayer(arg)
+        elseif event=="PLAYER_TARGET_CHANGED" then sampleLayer("target")
+        elseif event=="UPDATE_MOUSEOVER_UNIT" then sampleLayer("mouseover")
+        elseif event=="PLAYER_ENTERING_WORLD" or event=="ZONE_CHANGED_NEW_AREA" or event=="SHARD_TRANSFER" or event=="SHARD_TRANSFER_IMMINENT" then
+            resetLayer(); observe()
+            if event~="SHARD_TRANSFER_IMMINENT" then sampleNearby() end
+        else observe() end
+    end
 end)
 local elapsed = 0
 events:SetScript("OnUpdate", function(_, delta)
     if not ready then return end
     elapsed = elapsed + delta
-    if elapsed >= 60 then elapsed = 0; observe() end
+    if elapsed >= 60 then elapsed = 0; sampleNearby(); observe() end
 end)

@@ -1,6 +1,6 @@
 #!/bin/bash
 set -euo pipefail
-printf '%s\n' 'Azeroth Weather Companion' 'This enables automatic sharing of weather, zone, realm, time and a random installation ID. Reports are public. No character or account name is sent.'
+printf '%s\n' 'Azeroth Weather Companion' 'This enables automatic sharing of weather, zone, realm, estimated layer, time and a random installation ID. Reports are public. No character or account name is sent.'
 read -r -p 'Type YES to install and enable sharing: ' answer
 if [[ "$answer" != YES ]]; then echo 'Installation cancelled.'; exit 0; fi
 source_dir="$(cd "$(dirname "$0")" && pwd)"

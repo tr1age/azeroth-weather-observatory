@@ -1,5 +1,5 @@
 """Azeroth Weather desktop uploader. Runs on the player's PC, never inside WoW."""
-import argparse, datetime as dt, hashlib, json, math, os, pathlib, sys, time, urllib.request, urllib.error, uuid
+import argparse, datetime as dt, hashlib, json, math, os, pathlib, re, sys, time, urllib.request, urllib.error, uuid
 from saved_data import parse_saved, SavedDataError
 URL='https://weather.craftingworlds.com/api/observations'
 ORIGIN='https://weather.craftingworlds.com'
@@ -26,6 +26,10 @@ def records_from_file(path, now=None):
         intensity=r.get('intensity')
         if intensity is not None and (isinstance(intensity,bool) or not isinstance(intensity,(int,float)) or not math.isfinite(intensity) or not 0<=intensity<=10): continue
         item={'zone':zone.strip(),'realm':realm.strip(),'weather':weather,'observed_at':dt.datetime.fromtimestamp(stamp,dt.timezone.utc).isoformat(timespec='milliseconds').replace('+00:00','Z'),'source':source}
+        layer=r.get('layer')
+        if layer is not None:
+            if not isinstance(layer,str) or not re.fullmatch(r'[0-9]{1,10}-[0-9]{1,10}',layer): continue
+            item['layer']=layer
         if intensity is not None: item['intensity']=intensity
         out.append(item)
     return out
@@ -68,9 +72,11 @@ def render_feed(data, downloaded_at):
             if timestamp.tzinfo is None: continue
             stamp=int(timestamp.timestamp())
             if not downloaded_at-7*86400<=stamp<=downloaded_at+300: continue
+            layer=r.get('layer')
+            if layer is not None and (not isinstance(layer,str) or not re.fullmatch(r'[0-9]{1,10}-[0-9]{1,10}',layer)): continue
             count=r.get('report_count',0); tied=r.get('tied',0)
             if isinstance(count,bool) or not isinstance(count,int) or not 0<=count<=1000000: count=0
-            lines.append('  { zone='+zone+', realm='+realm+', weather='+lua_quote(weather)+', at='+str(stamp)+', count='+str(count)+', tied='+('true' if tied == 1 else 'false')+' },')
+            lines.append('  { zone='+zone+', realm='+realm+', weather='+lua_quote(weather)+((', layer='+lua_quote(layer)) if layer else '')+', at='+str(stamp)+', count='+str(count)+', tied='+('true' if tied == 1 else 'false')+' },')
             accepted+=1
         except (KeyError,TypeError,ValueError,OverflowError,AttributeError): continue
     lines.append('} }')
@@ -124,7 +130,7 @@ def main():
         try: fcntl.flock(lock_file.fileno(),fcntl.LOCK_EX|fcntl.LOCK_NB)
         except OSError: log('Companion is already running.'); return
     reporter=installation_id()
-    log('Started. Sending weather, zone, realm, timestamp, source, optional intensity and a random installation ID.')
+    log('Started. Sending weather, zone, realm, estimated layer, timestamp, source, optional intensity and a random installation ID.')
     addon_dir=args.addon_dir or (args.root.parent.parent/'Interface'/'AddOns'/'AzerothWeather')
     next_feed=0
     while True:

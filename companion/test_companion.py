@@ -30,6 +30,13 @@ class TestCompanion(unittest.TestCase):
    self.assertEqual(reports[0]['weather'],'miscellaneous')
    text,count=companion.render_feed({'observations': reports},1794200001)
    self.assertEqual(count,1);self.assertIn('miscellaneous',text)
+ def test_layer_roundtrip_and_rejects_bad_layer(self):
+  raw='AzerothWeatherDB = { observations = { { zone="Elwynn", realm="Realm", weather="rain", source="client", at=1794200000, layer="7051-5" } } }'
+  with tempfile.TemporaryDirectory() as d:
+   p=pathlib.Path(d)/'AzerothWeather.lua';p.write_text(raw,encoding='utf-8')
+   reports=companion.records_from_file(p,1794200001);self.assertEqual(reports[0]['layer'],'7051-5')
+   text,count=companion.render_feed({'observations': reports},1794200001);self.assertEqual(count,1);self.assertIn('layer="7051-5"',text)
+   reports[0]['layer']='bad';self.assertEqual(companion.render_feed({'observations':reports},1794200001)[1],0)
  def test_feed_refuses_unmanaged_file(self):
   with tempfile.TemporaryDirectory() as d:
    folder=pathlib.Path(d);(folder/'AzerothWeather.toc').write_text('toc');target=folder/'WeatherFeed.lua';target.write_text('user-created file')
