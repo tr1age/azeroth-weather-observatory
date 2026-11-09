@@ -12,7 +12,7 @@ The addon uses WoW's weather API when available and writes saved variables when 
 
 ## Source
 
-- `addon/AzerothWeather/`: in-game addon source. It references WoW's built-in icon textures and includes a user-provided clear-weather icon.
+- `addon/AzerothWeather/`: in-game addon source. It references WoW's built-in icon textures and includes user-provided clear-weather and rain icons.
 - `companion/companion.py` and `companion/saved_data.py`: companion and saved-variable parser.
 - `companion/windows_installer.py`: single-file Windows installer and background runner.
 - `companion/mac/`: Mac installer and stop scripts.
