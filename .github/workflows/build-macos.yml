@@ -31,6 +31,19 @@ jobs:
           mkdir -p "$HOME/empty"
           ./mac-dist/AzerothWeatherCompanion --once --root "$HOME/empty" --addon-dir "$HOME/empty"
           grep -q 'Started.' "$HOME/Library/Application Support/AzerothWeatherCompanion/companion.log"
+      - name: Test install and stop without a login session
+        run: |
+          export HOME="$(mktemp -d)"
+          mkdir -p "$HOME/bin"
+          printf '#!/bin/sh\nexit 0\n' > "$HOME/bin/launchctl"
+          chmod +x "$HOME/bin/launchctl"
+          export PATH="$HOME/bin:$PATH"
+          cp companion/mac/*.command mac-dist/
+          printf 'YES\n\n' | bash mac-dist/Install-Azeroth-Weather.command
+          test -x "$HOME/Library/Application Support/AzerothWeatherCompanion/AzerothWeatherCompanion"
+          /usr/bin/plutil -lint "$HOME/Library/LaunchAgents/com.craftingworlds.azerothweather.plist"
+          printf '\n' | bash mac-dist/Stop-Azeroth-Weather.command
+          test ! -e "$HOME/Library/LaunchAgents/com.craftingworlds.azerothweather.plist"
       - run: |
           cp companion/mac/*.command mac-dist/
           chmod +x mac-dist/*.command
