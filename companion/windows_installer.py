@@ -1,5 +1,5 @@
 """Single-file installer and background runner for Azeroth Weather on Windows."""
-import ctypes, os, pathlib, shutil, subprocess, sys, tempfile
+import ctypes, os, pathlib, shutil, subprocess, sys, tempfile, threading, queue
 import tkinter as tk
 from tkinter import messagebox
 import companion
@@ -49,9 +49,45 @@ def stop(install_dir,startup_dir):
     startup=startup_dir/'AzerothWeatherCompanion.vbs'
     if startup.exists(): startup.unlink()
 
+def running_window():
+    # The worker belongs to this visible window: closing it ends the worker too.
+    window=tk.Tk(); window.title('Azeroth Weather Companion'); window.geometry('510x300'); window.resizable(False,False); window.configure(bg='#092b3d')
+    body=tk.Frame(window,bg='#092b3d',padx=28,pady=24); body.pack(fill='both',expand=True)
+    tk.Label(body,text='AZEROTH WEATHER',bg='#092b3d',fg='#e6f2ed',font=('Segoe UI',18,'bold')).pack(anchor='w')
+    tk.Label(body,text='Companion for Windows',bg='#092b3d',fg='#9fd2da',font=('Segoe UI',11)).pack(anchor='w',pady=(0,18))
+    status=tk.StringVar(value='Weather sharing is running')
+    tk.Label(body,textvariable=status,bg='#092b3d',fg='#a8e0cf',font=('Segoe UI',12,'bold'),wraplength=450,justify='left').pack(anchor='w')
+    tk.Label(body,text='Your reports are shared after you reload or log out of WoW. Keep this window open while you want to share.',bg='#092b3d',fg='#d0e1e3',font=('Segoe UI',10),wraplength=450,justify='left').pack(anchor='w',pady=(12,16))
+    errors=queue.Queue()
+    def worker():
+        try:
+            companion.main()
+            errors.put('Sharing stopped. Another companion may already be running.')
+        except Exception as exc:
+            errors.put('Sharing stopped: '+str(exc))
+    def check_worker():
+        try: status.set(errors.get_nowait())
+        except queue.Empty: pass
+        window.after(1000,check_worker)
+    def close():
+        try:
+            startup=startup_directory()/'AzerothWeatherCompanion.vbs'
+            if startup.exists(): startup.unlink()
+        except OSError as exc:
+            messagebox.showerror('Could not stop sharing',str(exc)); return
+        window.destroy()
+    tk.Button(body,text='Stop sharing and close',command=close,bg='#1c8191',fg='white',font=('Segoe UI',10,'bold'),padx=10,pady=6).pack(anchor='w')
+    window.protocol('WM_DELETE_WINDOW',close)
+    threading.Thread(target=worker,daemon=True).start()
+    window.after(1000,check_worker)
+    window.mainloop()
+
 def main():
     if '--run' in sys.argv:
-        sys.argv.remove('--run'); companion.main(); return
+        sys.argv.remove('--run')
+        if '--once' in sys.argv: companion.main()
+        else: running_window()
+        return
     if '--check-package' in sys.argv:
         assert callable(companion.main)
         return
@@ -63,15 +99,14 @@ def main():
           'Installing enables public sharing of weather, zone, realm, time, source, optional intensity and a random installation ID. '
           'No character or account name is sent. The companion starts with Windows.')
     tk.Label(body,text=info,bg='#092b3d',fg='#d0e1e3',font=('Segoe UI',10),wraplength=452,justify='left').pack(anchor='w')
-    status=tk.StringVar(value='You can stop sharing by opening this app again.')
+    status=tk.StringVar(value='The companion window stays open while sharing is enabled.')
     tk.Label(body,textvariable=status,bg='#092b3d',fg='#9fd2da',font=('Segoe UI',9),wraplength=450,justify='left').pack(anchor='w',pady=(12,8))
     buttons=tk.Frame(body,bg='#092b3d'); buttons.pack(anchor='w',pady=5)
     def handle_install():
         try:
             if not getattr(sys,'frozen',False): raise RuntimeError('Run the packaged Windows installer.')
             install(sys.executable,INSTALL_DIR,startup_directory())
-            status.set('Installed and sharing enabled. Use /reload or log out to send reports.')
-            messagebox.showinfo('Azeroth Weather','Installed! Use /reload or log out in WoW to share saved reports.')
+            window.destroy()
         except Exception as exc: messagebox.showerror('Could not install',str(exc))
     def handle_stop():
         try:
