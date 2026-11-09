@@ -2,9 +2,10 @@
 ## Title: Azeroth Weather Observatory
 ## Notes: Local weather observations and manual reports for WoW Forever.
 ## Author: Azeroth Weather Observatory
-## Version: 0.11.0
+## Version: 0.12.0
 ## IconTexture: Interface\Icons\INV_Misc_Spyglass_03
 ## OptionalDeps: EllesmereUI
 ## SavedVariables: AzerothWeatherDB
 WeatherFeed.lua
 AzerothWeather.lua
+WeatherMap.lua

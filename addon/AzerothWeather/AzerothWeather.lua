@@ -118,6 +118,22 @@ local function zoneReports()
     table.sort(result, function(a,b) local ca, cb = continent(a.record.zone), continent(b.record.zone); if ca ~= cb then return ca < cb end; return a.record.zone:lower() < b.record.zone:lower() end)
     return result
 end
+-- The world map uses only reports for the player's realm and inferred layer.
+function AzerothWeather_GetMapReports()
+    local realm=safeText(GetRealmName and GetRealmName(), "")
+    local layer=current and current.layer or nil
+    local result={}
+    local function consider(r)
+        if type(r)~="table" or type(r.zone)~="string" or type(r.realm)~="string" or type(r.weather)~="string" or type(r.at)~="number" then return end
+        if r.realm~=realm or r.layer~=layer then return end
+        local key=r.zone:lower(); local old=result[key]
+        if not old or r.at>old.at then result[key]=r end
+    end
+    local feed=AzerothWeatherWebsiteFeed
+    if type(feed)=="table" and type(feed.observations)=="table" then for _,r in ipairs(feed.observations) do consider(r) end end
+    if type(AzerothWeatherDB)=="table" and type(AzerothWeatherDB.observations)=="table" then for _,r in ipairs(AzerothWeatherDB.observations) do consider(r) end end
+    return result, layer
+end
 local function ageLabel(at)
     local elapsed = math.max(0, time() - at)
     if elapsed < 60 then return "just now" end
@@ -183,6 +199,7 @@ local function updateUI()
         exportBox:SetText("")
     end
     refreshZoneReports()
+    if AzerothWeather_RefreshMap then pcall(AzerothWeather_RefreshMap) end
 end
 local function saveObservation(weather, intensity, source)
     local zone, subzone, realm = getLocation()
@@ -313,7 +330,7 @@ local function createUI()
     local icon=frame:CreateTexture(nil,"ARTWORK"); icon:SetTexture("Interface\\Icons\\INV_Misc_Spyglass_03"); icon:SetSize(30,30); icon:SetPoint("TOPLEFT",22,-17)
     local title=frame:CreateFontString(nil,"OVERLAY","GameFontHighlightLarge"); title:SetPoint("TOPLEFT",62,-19); title:SetText("AZEROTH WEATHER"); title:SetTextColor(.85,.94,1)
     local close=CreateFrame("Button",nil,frame,"UIPanelCloseButton"); close:SetPoint("TOPRIGHT",-4,-3)
-    local subtitle=frame:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall"); subtitle:SetPoint("TOPLEFT",63,-40); subtitle:SetText("Weather reports from across Azeroth"); subtitle:SetTextColor(.55,.75,.82)
+    local subtitle=frame:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall"); subtitle:SetPoint("TOPLEFT",63,-40); subtitle:SetText("Weather reports from across Azeroth · /awo map toggles map markers"); subtitle:SetTextColor(.55,.75,.82)
     sectionLine(frame,-58)
     local weatherPanel=frame:CreateTexture(nil,"BACKGROUND"); weatherPanel:SetPoint("TOPLEFT",24,-65); weatherPanel:SetSize(562,71); weatherPanel:SetColorTexture(.07,.20,.27,.95)
     local accent=frame:CreateTexture(nil,"ARTWORK"); accent:SetPoint("TOPLEFT",24,-65); accent:SetSize(3,71); accent:SetColorTexture(.40,.78,.83,1)
@@ -407,7 +424,8 @@ SlashCmdList.AZEROTHWEATHER = function(input)
         if minimapButton then if AzerothWeatherDB.minimapHidden then minimapButton:Hide() else minimapButton:Show() end end
         chat(AzerothWeatherDB.minimapHidden and "Minimap button hidden. Use /awo minimap to show it." or "Minimap button shown.")
     elseif input == "export" then frame:Show(); exportBox:Show(); exportBox:SetFocus(); exportBox:HighlightText(); chat("Copy the selected report with Ctrl+C.")
-    elseif input == "help" then chat("/awo opens the report; /awo refresh checks the client; /awo minimap shows or hides the button.")
+    elseif input == "map" then if AzerothWeather_ToggleMap then AzerothWeather_ToggleMap() else chat("Weather map is not available yet.") end
+    elseif input == "help" then chat("/awo opens the report; /awo refresh checks the client; /awo minimap shows or hides the button; /awo map toggles map markers.")
     else toggleWindow() end
 end
 events:RegisterEvent("ADDON_LOADED")

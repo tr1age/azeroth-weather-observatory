@@ -33,6 +33,8 @@ python -m PyInstaller --noconfirm --clean --onefile --noconsole --name AzerothWe
 
 GitHub Actions builds Mac packages on both Apple silicon and Intel runners. The generated installers are not signed or notarized. Building from source yourself is an option; a published binary is not automatically proven safe merely because source is available.
 
+The in-game world map displays weather markers for the player’s realm and estimated layer. Use `/awo map` to toggle them. Icons for the map were supplied by the project owner with permission to redistribute.
+
 ## Limitations
 
 WoW writes SavedVariables on reload or logout; the companion cannot send observations until then, and community reports load on a subsequent reload. The provided installers expect the standard WoW Forever installation path. Layer identifiers are estimated from nearby NPCs and can change or be unavailable. They are not official layer numbers; reports with unknown layers remain separate. Weather API behavior and layer information vary by client; test in game.
