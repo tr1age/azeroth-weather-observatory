@@ -6,8 +6,8 @@ local zoneRows, pageLabel, feedLabel, previousButton, nextButton = {}, nil, nil,
 local page = 1
 local selectedWeather, selectedContinent, selectedZone, searchText = "all", "All continents", "All zones", ""
 local searchBox, emptyLabel, conditionIcon
-local weatherIcons = {clear="|TInterface\\Icons\\ability_mage_firestarter:18:18|t", rain="|TInterface\\Icons\\spell_nature_giftofthewaterspirit:18:18|t", snow="|TInterface\\Icons\\Spell_Frost_IceStorm:18:18|t", sandstorm="|TInterface\\Icons\\Spell_Nature_EarthShock:18:18|t", unknown="—"}
-local weatherNames = {clear="Clear", rain="Rain", snow="Snow", sandstorm="Sand", unknown="Unknown"}
+local weatherIcons = {clear="|TInterface\\Icons\\ability_mage_firestarter:18:18|t", rain="|TInterface\\Icons\\spell_nature_giftofthewaterspirit:18:18|t", snow="|TInterface\\Icons\\Spell_Frost_IceStorm:18:18|t", sandstorm="|TInterface\\Icons\\Spell_Nature_EarthShock:18:18|t", miscellaneous="|TInterface\\Icons\\INV_Misc_QuestionMark:18:18|t", unknown="—"}
+local weatherNames = {clear="Clear", rain="Rain", snow="Snow", sandstorm="Sand", miscellaneous="Miscellaneous", unknown="Unknown"}
 local continents, zoneCatalog = {}, {}
 local function addZones(continent, list) for zone in list:gmatch("[^|]+") do continents[zone:lower()] = continent; zoneCatalog[#zoneCatalog+1] = {zone=zone, continent=continent} end end
 addZones("Eastern Kingdoms", "Alterac Mountains|Arathi Highlands|Badlands|Blasted Lands|Burning Steppes|Deadwind Pass|Dun Morogh|Duskwood|Eastern Plaguelands|Elwynn Forest|Hillsbrad Foothills|Ironforge|Loch Modan|Redridge Mountains|Searing Gorge|Silverpine Forest|Stormwind City|Stranglethorn Vale|Swamp of Sorrows|The Hinterlands|Tirisfal Glades|Undercity|Western Plaguelands|Westfall|Wetlands|Eversong Woods|Ghostlands|Silvermoon City|Isle of Quel'Danas")
@@ -43,7 +43,7 @@ end
 local function classify(kind)
     local enums = Enum and Enum.WeatherType
     if type(enums) ~= "table" then return "unknown" end
-    for _, pair in ipairs({{"Clear", "clear"}, {"Rain", "rain"}, {"Snow", "snow"}, {"Sandstorm", "sandstorm"}}) do
+    for _, pair in ipairs({{"Clear", "clear"}, {"Rain", "rain"}, {"Snow", "snow"}, {"Sandstorm", "sandstorm"}, {"Miscellaneous", "miscellaneous"}}) do
         if type(enums[pair[1]]) == "number" and kind == enums[pair[1]] then return pair[2] end
     end
     return "unknown"
@@ -325,8 +325,8 @@ local function createUI()
         end
     end)
     local filterLabel=frame:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall"); filterLabel:SetPoint("TOPLEFT",25,-236); filterLabel:SetText("Show:"); filterLabel:SetTextColor(.70,.84,.88)
-    for i, opt in ipairs({{"All","all"},{"Clear","clear"},{"Rain","rain"},{"Snow","snow"},{"Sand","sandstorm"}}) do
-        local value=opt[2]; local label=(weatherIcons[value] and (weatherIcons[value] .. "  ") or "") .. opt[1]; addButton(frame,label,83,70+(i-1)*94,-229,function() selectedWeather=value; page=1; refreshZoneReports() end)
+    for i, opt in ipairs({{"All","all"},{"Clear","clear"},{"Rain","rain"},{"Snow","snow"},{"Sand","sandstorm"},{"Misc","miscellaneous"}}) do
+        local value=opt[2]; local label=(weatherIcons[value] and (weatherIcons[value] .. "  ") or "") .. opt[1]; addButton(frame,label,78,70+(i-1)*85,-229,function() selectedWeather=value; page=1; refreshZoneReports() end)
     end
     for i=1,ROW_COUNT do
         local row=CreateFrame("Frame",nil,frame); row:SetSize(560,42); row:SetPoint("TOPLEFT",25,-267-(i-1)*45)
@@ -343,8 +343,8 @@ local function createUI()
     nextButton=addButton(frame,">",36,139,-499,function() page=page+1; refreshZoneReports() end)
     pageLabel=frame:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall"); pageLabel:SetPoint("TOPLEFT",65,-507); pageLabel:SetWidth(70); pageLabel:SetJustifyH("CENTER")
     local manual=frame:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall"); manual:SetPoint("TOPLEFT",200,-506); manual:SetText("Report what you see:"); manual:SetTextColor(.70,.84,.88)
-    for i, option in ipairs({{"Clear","clear"},{"Rain","rain"},{"Snow","snow"},{"Sand","sandstorm"}}) do
-        local weather=option[2]; local b=addButton(frame,weatherIcons[weather] .. " " .. option[1],65,331+(i-1)*64,-499,function() reportWeather(weather) end)
+    for i, option in ipairs({{"Clear","clear"},{"Rain","rain"},{"Snow","snow"},{"Sand","sandstorm"},{"Misc","miscellaneous"}}) do
+        local weather=option[2]; local b=addButton(frame,weatherIcons[weather] .. " " .. option[1],52,331+(i-1)*52,-499,function() reportWeather(weather) end)
     end
     local note=frame:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall"); note:SetPoint("TOPLEFT",25,-544); note:SetWidth(390); note:SetJustifyH("LEFT"); note:SetText("Copy your report to share on the weather website."); note:SetTextColor(.55,.72,.77)
     addButton(frame,"Share manually",130,450,-535,function()

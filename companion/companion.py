@@ -21,7 +21,7 @@ def records_from_file(path, now=None):
         zone,realm,weather,source,stamp=(r.get(x) for x in ('zone','realm','weather','source','at'))
         if not all(isinstance(v,str) and 0<len(v.strip())<=100 for v in (zone,realm)): continue
         if any(ord(c)<32 or ord(c)==127 for c in zone+realm): continue
-        if weather not in ('clear','rain','snow','sandstorm','unknown') or source not in ('client','manual'): continue
+        if weather not in ('clear','rain','snow','sandstorm','miscellaneous','unknown') or source not in ('client','manual'): continue
         if isinstance(stamp,bool) or not isinstance(stamp,(int,float)) or not math.isfinite(stamp) or not now-7*86400<=stamp<=now+300: continue
         intensity=r.get('intensity')
         if intensity is not None and (isinstance(intensity,bool) or not isinstance(intensity,(int,float)) or not math.isfinite(intensity) or not 0<=intensity<=10): continue
@@ -63,7 +63,7 @@ def render_feed(data, downloaded_at):
         if not isinstance(r,dict): continue
         try:
             zone=lua_quote(r['zone'].strip()); realm=lua_quote(r['realm'].strip()); weather=r['weather']
-            if weather not in ('clear','rain','snow','sandstorm','unknown'): continue
+            if weather not in ('clear','rain','snow','sandstorm','miscellaneous','unknown'): continue
             timestamp=dt.datetime.fromisoformat(r['observed_at'].replace('Z','+00:00'))
             if timestamp.tzinfo is None: continue
             stamp=int(timestamp.timestamp())

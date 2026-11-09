@@ -22,6 +22,14 @@ class TestCompanion(unittest.TestCase):
   self.assertIn('\\\"',text)
   self.assertNotIn('Bad\nName',text)
   self.assertNotIn('character',text)
+ def test_miscellaneous_round_trip(self):
+  raw='AzerothWeatherDB = { observations = { { zone="Elwynn", realm="Realm", weather="miscellaneous", source="client", at=1794200000 } } }'
+  with tempfile.TemporaryDirectory() as d:
+   p=pathlib.Path(d)/'AzerothWeather.lua';p.write_text(raw,encoding='utf-8')
+   reports=companion.records_from_file(p,1794200001)
+   self.assertEqual(reports[0]['weather'],'miscellaneous')
+   text,count=companion.render_feed({'observations': reports},1794200001)
+   self.assertEqual(count,1);self.assertIn('miscellaneous',text)
  def test_feed_refuses_unmanaged_file(self):
   with tempfile.TemporaryDirectory() as d:
    folder=pathlib.Path(d);(folder/'AzerothWeather.toc').write_text('toc');target=folder/'WeatherFeed.lua';target.write_text('user-created file')
