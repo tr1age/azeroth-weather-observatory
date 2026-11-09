@@ -35,6 +35,8 @@ GitHub Actions builds Mac packages on both Apple silicon and Intel runners. The 
 
 The in-game world map displays weather markers for the player’s realm and estimated layer. Use `/awo map` to toggle them. Icons for the map were supplied by the project owner with permission to redistribute.
 
+In-game sharing is opt-in. Click Share in game in the addon or type `/awo share`; it uses rate-limited party, raid, and guild addon messages. Recipients can see the sending character through the game. Peer reports are kept in memory, are not uploaded by the companion, and are not counted as independent website votes. Channel delivery depends on client/realm restrictions; this implementation uses its own protocol and does not interoperate with WACHEONUI.
+
 ## Limitations
 
 WoW writes SavedVariables on reload or logout; the companion cannot send observations until then, and community reports load on a subsequent reload. The provided installers expect the standard WoW Forever installation path. Layer identifiers are estimated from nearby NPCs and can change or be unavailable. They are not official layer numbers; reports with unknown layers remain separate. Weather API behavior and layer information vary by client; test in game.

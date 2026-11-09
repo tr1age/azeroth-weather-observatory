@@ -5,7 +5,7 @@ local frame, conditionText, detailText, statusText, exportBox, minimapButton
 local zoneRows, pageLabel, feedLabel, previousButton, nextButton = {}, nil, nil, nil, nil
 local page = 1
 local selectedWeather, selectedContinent, selectedZone, searchText = "all", "All continents", "All zones", ""
-local searchBox, emptyLabel, conditionIcon, currentZoneText
+local searchBox, emptyLabel, conditionIcon, currentZoneText, shareNote
 local weatherIcons = {clear="|TInterface\\AddOns\\AzerothWeather\\Media\\Clear:18:18|t", rain="|TInterface\\AddOns\\AzerothWeather\\Media\\Rain:18:18|t", snow="|TInterface\\Icons\\Spell_Frost_IceStorm:18:18|t", sandstorm="|TInterface\\Icons\\Spell_Nature_EarthShock:18:18|t", miscellaneous="|TInterface\\Icons\\INV_Misc_QuestionMark:18:18|t", unknown="—"}
 local weatherNames = {clear="Clear", rain="Rain", snow="Snow", sandstorm="Sand", miscellaneous="Miscellaneous", unknown="Unknown"}
 local continents, zoneCatalog = {}, {}
@@ -23,7 +23,7 @@ local ROW_COUNT = 5
 local ready = false
 local current
 local inferredLayer, layerVotes, layerSeen = nil, {}, {}
-local observe
+local observe, updateUI
 local lastSignature, lastSavedAt = nil, 0
 local lastManualAt = 0
 local message = "Waiting for a weather observation."
@@ -114,6 +114,7 @@ local function zoneReports()
     local feed = AzerothWeatherWebsiteFeed
     if type(feed) == "table" and type(feed.observations) == "table" then for _, r in ipairs(feed.observations) do add(r, "Website") end end
     if type(AzerothWeatherDB) == "table" and type(AzerothWeatherDB.observations) == "table" then for _, r in ipairs(AzerothWeatherDB.observations) do local existing=newest[type(r.zone)=="string" and r.zone:lower() or ""]; if not existing or existing.label=="You" then add(r, "You") end end end
+    if AzerothWeather_GetPeerReports then for _,r in pairs(AzerothWeather_GetPeerReports()) do add(r,"In-game") end end
     local result = {}; for _, zone in ipairs(zoneCatalog) do local item = newest[zone.zone:lower()] or {record={zone=zone.zone}, label=""}; result[#result+1] = item end
     table.sort(result, function(a,b) local ca, cb = continent(a.record.zone), continent(b.record.zone); if ca ~= cb then return ca < cb end; return a.record.zone:lower() < b.record.zone:lower() end)
     return result
@@ -132,8 +133,11 @@ function AzerothWeather_GetMapReports()
     local feed=AzerothWeatherWebsiteFeed
     if type(feed)=="table" and type(feed.observations)=="table" then for _,r in ipairs(feed.observations) do consider(r) end end
     if type(AzerothWeatherDB)=="table" and type(AzerothWeatherDB.observations)=="table" then for _,r in ipairs(AzerothWeatherDB.observations) do consider(r) end end
+    if AzerothWeather_GetPeerReports then for _,r in pairs(AzerothWeather_GetPeerReports()) do consider(r) end end
     return result, layer
 end
+function AzerothWeather_GetCurrentObservation() return current end
+function AzerothWeather_PeerUpdated() if ready then updateUI() end end
 local function ageLabel(at)
     local elapsed = math.max(0, time() - at)
     if elapsed < 60 then return "just now" end
@@ -163,7 +167,7 @@ local function refreshZoneReports()
                 row.realm:SetText("Realm: " .. displayRealm(r.realm) .. "  ·  Layer: " .. (r.layer and (tostring(r.layer) .. " (estimated)") or "Unknown"))
                 row.weather:SetText(weatherNames[r.weather] or "Unknown")
                 local count=tonumber(r.count) or 0
-                local summary = count>0 and (r.tied and "Tied · latest" or (count .. (count==1 and " reporter" or " reporters"))) or "Reported"
+                local summary = item.label=="In-game" and "In-game report" or (count>0 and (r.tied and "Tied · latest" or (count .. (count==1 and " reporter" or " reporters"))) or "Reported")
                 row.age:SetText(summary .. " · " .. ageLabel(r.at))
                 if time()-r.at > 1800 then row.age:SetTextColor(0.80, 0.65, 0.45) else row.age:SetTextColor(0.62, 0.75, 0.72) end
             else
@@ -179,7 +183,7 @@ local function refreshZoneReports()
     if previousButton then previousButton:SetEnabled(page > 1) end
     if nextButton then nextButton:SetEnabled(page < pages) end
 end
-local function updateUI()
+updateUI = function()
     if not frame then return end
     if current then
         conditionText:SetText(weatherNames[current.weather] or "Unknown")
@@ -199,6 +203,7 @@ local function updateUI()
         exportBox:SetText("")
     end
     refreshZoneReports()
+    if shareNote then shareNote:SetText("Share in game: " .. ((AzerothWeatherDB and AzerothWeatherDB.peerSharing) and "ON" or "OFF")) end
     if AzerothWeather_RefreshMap then pcall(AzerothWeather_RefreshMap) end
 end
 local function saveObservation(weather, intensity, source)
@@ -407,7 +412,9 @@ local function createUI()
     for i, option in ipairs({{"Clear","clear"},{"Rain","rain"},{"Snow","snow"},{"Sand","sandstorm"},{"Misc","miscellaneous"}}) do
         local weather=option[2]; local b=addButton(frame,weatherIcons[weather] .. " " .. option[1],52,331+(i-1)*52,-499,function() reportWeather(weather) end)
     end
-    local note=frame:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall"); note:SetPoint("TOPLEFT",25,-544); note:SetWidth(390); note:SetJustifyH("LEFT"); note:SetText("Copy your report to share on the weather website."); note:SetTextColor(.55,.72,.77)
+    shareNote=addButton(frame,"Share in game: OFF",195,25,-535,function() if AzerothWeather_ToggleSharing then AzerothWeather_ToggleSharing() else chat("In-game sharing is unavailable.") end end)
+    shareNote:SetScript("OnEnter",function(self) self:SetBackdropColor(.14,.32,.39,1); GameTooltip:SetOwner(self,"ANCHOR_RIGHT"); GameTooltip:AddLine("In-game sharing",1,.82,0); GameTooltip:AddLine("Shares weather with your guild and group. The game identifies your character to recipients.",1,1,1,true); GameTooltip:Show() end)
+    shareNote:SetScript("OnLeave",function(self) self:SetBackdropColor(.09,.22,.29,.95); GameTooltip:Hide() end)
     addButton(frame,"Share manually",130,450,-535,function()
         if not current then message="No weather report to copy yet."; updateUI(); return end
         exportBox:Show(); message="Press Ctrl+C (Mac: Command+C), then paste on the website."; updateUI(); exportBox:SetFocus(); exportBox:HighlightText()
@@ -424,8 +431,9 @@ SlashCmdList.AZEROTHWEATHER = function(input)
         if minimapButton then if AzerothWeatherDB.minimapHidden then minimapButton:Hide() else minimapButton:Show() end end
         chat(AzerothWeatherDB.minimapHidden and "Minimap button hidden. Use /awo minimap to show it." or "Minimap button shown.")
     elseif input == "export" then frame:Show(); exportBox:Show(); exportBox:SetFocus(); exportBox:HighlightText(); chat("Copy the selected report with Ctrl+C.")
+    elseif input == "share" then if AzerothWeather_ToggleSharing then AzerothWeather_ToggleSharing() else chat("In-game sharing is unavailable.") end
     elseif input == "map" then if AzerothWeather_ToggleMap then AzerothWeather_ToggleMap() else chat("Weather map is not available yet.") end
-    elseif input == "help" then chat("/awo opens the report; /awo refresh checks the client; /awo minimap shows or hides the button; /awo map toggles map markers.")
+    elseif input == "help" then chat("/awo opens the report; /awo refresh checks the client; /awo minimap shows or hides the button; /awo map toggles map markers; /awo share toggles in-game sharing.")
     else toggleWindow() end
 end
 events:RegisterEvent("ADDON_LOADED")

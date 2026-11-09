@@ -14,7 +14,7 @@ local function makePin(i)
         if self.record then
             local age=math.max(0,time()-self.record.at)
             local when=age<60 and 'just now' or (age<3600 and (math.floor(age/60)..'m ago') or (math.floor(age/3600)..'h ago'))
-            GameTooltip:AddLine('Reported '..when,.7,.85,.9)
+            GameTooltip:AddLine((self.record.source=='peer' and 'In-game report · ' or 'Reported ')..when,.7,.85,.9)
             GameTooltip:AddLine('Layer: '..(self.record.layer and (self.record.layer..' (estimated)') or 'Unknown'),.7,.85,.9)
         else GameTooltip:AddLine('No report for your realm and layer',.7,.85,.9) end
         GameTooltip:Show()
