@@ -10,6 +10,8 @@ See [GitHub Releases](https://github.com/tr1age/azeroth-weather-observatory/rele
 
 The addon uses WoW's weather API when available and writes saved variables when WoW saves addon data. Manual reports are checked against the local game reading when possible. Sharing through the companion is optional and requires installation and consent. The companion reads the AzerothWeather saved data and sends weather, zone, realm, estimated layer identifier, observation time, source, optional intensity, and a random installation identifier. It does not send character or account names. Reports are public and not independently verified by the website. The identifier is pseudonymous, can be reset, and is used for counting and moderation.
 
+The Windows companion displays its installed version and release date, and checks the website for the latest Windows version. If the check fails, it says so rather than claiming the app is current.
+
 ## Source
 
 - `addon/AzerothWeather/`: in-game addon source. It references WoW's built-in icon textures and includes user-provided clear-weather and rain icons.

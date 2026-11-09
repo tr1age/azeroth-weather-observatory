@@ -1,9 +1,13 @@
 """Single-file installer and background runner for Azeroth Weather on Windows."""
-import ctypes, os, pathlib, shutil, subprocess, sys, tempfile, threading, queue
+import ctypes, datetime, json, os, pathlib, re, shutil, subprocess, sys, tempfile, threading, queue, urllib.request, webbrowser
 import tkinter as tk
 from tkinter import messagebox
 import companion
 
+APP_VERSION='0.11.1'
+APP_RELEASE_DATE='2026-11-09'
+VERSION_URL='https://weather.craftingworlds.com/api/version'
+DOWNLOAD_URL='https://weather.craftingworlds.com/#contribute'
 APP_NAME='AzerothWeatherApp.exe'
 INSTALL_DIR=pathlib.Path(os.environ['LOCALAPPDATA'])/'AzerothWeatherCompanion'
 GAME_ROOT=companion.DEFAULT_ROOT
@@ -49,15 +53,51 @@ def stop(install_dir,startup_dir):
     startup=startup_dir/'AzerothWeatherCompanion.vbs'
     if startup.exists(): startup.unlink()
 
+def version_parts(value):
+    if not isinstance(value,str) or not re.fullmatch(r'[0-9]{1,4}\.[0-9]{1,4}\.[0-9]{1,4}',value):
+        raise ValueError('Invalid version')
+    return tuple(int(part) for part in value.split('.'))
+
+def check_latest():
+    request=urllib.request.Request(VERSION_URL,headers={'Accept':'application/json','Cache-Control':'no-cache','User-Agent':'AzerothWeatherCompanion/version-check'})
+    with urllib.request.urlopen(request,timeout=10) as response:
+        body=response.read(8193)
+        if len(body)>8192: raise ValueError('Version response too large')
+    info=json.loads(body)['windows']
+    version=info['version']; released=info['released']
+    current, latest=version_parts(APP_VERSION), version_parts(version)
+    datetime.date.fromisoformat(released)
+    if latest>current: description='Update available'
+    elif latest==current: description='You are up to date'
+    else: description='Your version is newer than the published release'
+    return f'{description}  |  Latest: v{version} ({released})'
+
+def add_version_info(parent, window):
+    tk.Label(parent,text=f'Your version: v{APP_VERSION}  |  Released {APP_RELEASE_DATE}',bg='#092b3d',fg='#c1dbe0',font=('Segoe UI',9)).pack(anchor='w')
+    version_status=tk.StringVar(value='Checking for the latest version...')
+    tk.Label(parent,textvariable=version_status,bg='#092b3d',fg='#9fd2da',font=('Segoe UI',9),wraplength=450,justify='left').pack(anchor='w',pady=(3,0))
+    results=queue.Queue()
+    def check():
+        try: results.put(check_latest())
+        except Exception: results.put('Could not check the latest version. Check your connection.')
+    def poll():
+        try: version_status.set(results.get_nowait())
+        except queue.Empty: window.after(250,poll)
+    threading.Thread(target=check,daemon=True).start()
+    window.after(250,poll)
+    link=tk.Label(parent,text='Downloads and release notes ↗',bg='#092b3d',fg='#9fd2da',font=('Segoe UI',9,'underline'),cursor='hand2')
+    link.pack(anchor='w',pady=(2,0)); link.bind('<Button-1>',lambda event: webbrowser.open(DOWNLOAD_URL))
+
 def running_window():
     # The worker belongs to this visible window: closing it ends the worker too.
-    window=tk.Tk(); window.title('Azeroth Weather Companion'); window.geometry('510x300'); window.resizable(False,False); window.configure(bg='#092b3d')
+    window=tk.Tk(); window.title('Azeroth Weather Companion'); window.geometry('510x370'); window.resizable(False,False); window.configure(bg='#092b3d')
     body=tk.Frame(window,bg='#092b3d',padx=28,pady=24); body.pack(fill='both',expand=True)
     tk.Label(body,text='AZEROTH WEATHER',bg='#092b3d',fg='#e6f2ed',font=('Segoe UI',18,'bold')).pack(anchor='w')
     tk.Label(body,text='Companion for Windows',bg='#092b3d',fg='#9fd2da',font=('Segoe UI',11)).pack(anchor='w',pady=(0,18))
     status=tk.StringVar(value='Weather sharing is running')
     tk.Label(body,textvariable=status,bg='#092b3d',fg='#a8e0cf',font=('Segoe UI',12,'bold'),wraplength=450,justify='left').pack(anchor='w')
     tk.Label(body,text='Your reports are shared after you reload or log out of WoW. Keep this window open while you want to share.',bg='#092b3d',fg='#d0e1e3',font=('Segoe UI',10),wraplength=450,justify='left').pack(anchor='w',pady=(12,16))
+    add_version_info(body,window)
     errors=queue.Queue()
     def worker():
         try:
@@ -91,7 +131,7 @@ def main():
     if '--check-package' in sys.argv:
         assert callable(companion.main)
         return
-    window=tk.Tk(); window.title('Azeroth Weather Companion'); window.geometry('520x385'); window.resizable(False,False); window.configure(bg='#092b3d')
+    window=tk.Tk(); window.title('Azeroth Weather Companion'); window.geometry('520x460'); window.resizable(False,False); window.configure(bg='#092b3d')
     body=tk.Frame(window,bg='#092b3d',padx=28,pady=20); body.pack(fill='both',expand=True)
     tk.Label(body,text='AZEROTH WEATHER',bg='#092b3d',fg='#e6f2ed',font=('Segoe UI',18,'bold')).pack(anchor='w')
     tk.Label(body,text='Companion for Windows',bg='#092b3d',fg='#9fd2da',font=('Segoe UI',11)).pack(anchor='w',pady=(0,16))
@@ -99,6 +139,7 @@ def main():
           'Installing enables public sharing of weather, zone, realm, estimated layer, time, source, optional intensity and a random installation ID. '
           'No character or account name is sent. The companion starts with Windows.')
     tk.Label(body,text=info,bg='#092b3d',fg='#d0e1e3',font=('Segoe UI',10),wraplength=452,justify='left').pack(anchor='w')
+    add_version_info(body,window)
     status=tk.StringVar(value='The companion window stays open while sharing is enabled.')
     tk.Label(body,textvariable=status,bg='#092b3d',fg='#9fd2da',font=('Segoe UI',9),wraplength=450,justify='left').pack(anchor='w',pady=(12,8))
     buttons=tk.Frame(body,bg='#092b3d'); buttons.pack(anchor='w',pady=5)
