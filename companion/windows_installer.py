@@ -6,7 +6,7 @@ import companion
 import pystray
 from PIL import Image
 
-APP_VERSION='0.11.3'
+APP_VERSION='0.11.4'
 APP_RELEASE_DATE='2026-11-10'
 VERSION_URL='https://weather.craftingworlds.com/api/version'
 DOWNLOAD_URL='https://weather.craftingworlds.com/#contribute'
@@ -115,9 +115,9 @@ def configure_window(window, geometry):
 def read_tray_setting(path):
     try:
         data=json.loads(path.read_text(encoding='utf-8'))
-        return isinstance(data, dict) and data.get('minimize_to_tray') is True
+        return not isinstance(data, dict) or data.get('minimize_to_tray', True) is not False
     except (OSError, ValueError, TypeError):
-        return False
+        return True
 
 def read_startup_setting(path):
     try:
@@ -154,7 +154,7 @@ def running_window():
     tk.Label(body,text='Companion for Windows',bg='#092b3d',fg='#9fd2da',font=('Segoe UI',11)).pack(anchor='w',pady=(0,18))
     status=tk.StringVar(value='Weather sharing is running')
     tk.Label(body,textvariable=status,bg='#092b3d',fg='#a8e0cf',font=('Segoe UI',12,'bold'),wraplength=450,justify='left').pack(anchor='w')
-    tk.Label(body,text='Your reports are shared after you reload or log out of WoW. Minimize this window to the taskbar while sharing; closing it stops sharing.',bg='#092b3d',fg='#d0e1e3',font=('Segoe UI',10),wraplength=450,justify='left').pack(anchor='w',pady=(12,16))
+    tk.Label(body,text='Your reports are shared after you reload or log out of WoW. Minimize to keep sharing; reopen from the notification area or taskbar. Closing it stops sharing.',bg='#092b3d',fg='#d0e1e3',font=('Segoe UI',10),wraplength=450,justify='left').pack(anchor='w',pady=(12,16))
     add_version_info(body,window)
     tray_setting_path=INSTALL_DIR/'settings.json'
     tray_enabled=tk.BooleanVar(value=read_tray_setting(tray_setting_path))

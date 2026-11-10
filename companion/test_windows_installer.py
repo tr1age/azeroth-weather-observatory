@@ -8,8 +8,10 @@ class SettingsTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             path=Path(folder)/'settings.json'
             self.assertTrue(app.read_startup_setting(path))
-            self.assertFalse(app.read_tray_setting(path))
+            self.assertTrue(app.read_tray_setting(path))
             app.write_startup_setting(path,False)
+            app.write_tray_setting(path,False)
+            self.assertFalse(app.read_tray_setting(path))
             app.write_tray_setting(path,True)
             self.assertFalse(app.read_startup_setting(path))
             self.assertTrue(app.read_tray_setting(path))
