@@ -1,8 +1,8 @@
 ## Interface: 16001
-## Title: Azeroth Weather Observatory
+## Title: Weather Forever
 ## Notes: Local weather observations and manual reports for WoW Forever.
-## Author: Azeroth Weather Observatory
-## Version: 0.13.0
+## Author: Crafting Worlds
+## Version: 0.13.6
 ## IconTexture: Interface\Icons\INV_Misc_Spyglass_03
 ## OptionalDeps: EllesmereUI
 ## SavedVariables: AzerothWeatherDB
@@ -10,3 +10,6 @@ WeatherFeed.lua
 AzerothWeather.lua
 WeatherMap.lua
 WeatherPeers.lua
+PartyForecast.lua
+PanelMapZones.lua
+PanelMap.lua

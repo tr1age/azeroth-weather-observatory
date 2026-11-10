@@ -1,11 +1,11 @@
--- Azeroth Weather Observatory: independent implementation; no network access.
+-- Weather Forever: independent implementation; no network access.
 local ADDON = ...
 local MAX_OBSERVATIONS = 250
 local frame, conditionText, detailText, statusText, exportBox, minimapButton
 local zoneRows, pageLabel, feedLabel, previousButton, nextButton = {}, nil, nil, nil, nil
 local page = 1
 local selectedWeather, selectedContinent, selectedZone, searchText = "all", "All continents", "All zones", ""
-local searchBox, emptyLabel, conditionIcon, currentZoneText, shareNote
+local searchBox, emptyLabel, conditionIcon, currentZoneText, shareNote, shareDot, sharePulse, partyButton
 local weatherIcons = {clear="|TInterface\\AddOns\\AzerothWeather\\Media\\Clear:18:18|t", rain="|TInterface\\AddOns\\AzerothWeather\\Media\\Rain:18:18|t", snow="|TInterface\\Icons\\Spell_Frost_IceStorm:18:18|t", sandstorm="|TInterface\\Icons\\Spell_Nature_EarthShock:18:18|t", miscellaneous="|TInterface\\Icons\\INV_Misc_QuestionMark:18:18|t", unknown="—"}
 local weatherNames = {clear="Clear", rain="Rain", snow="Snow", sandstorm="Sand", miscellaneous="Miscellaneous", unknown="Unknown"}
 local continents, zoneCatalog = {}, {}
@@ -28,7 +28,7 @@ local lastSignature, lastSavedAt = nil, 0
 local lastManualAt = 0
 local message = "Waiting for a weather observation."
 local events = CreateFrame("Frame")
-local function chat(text) print("|cff65cdd1[Azeroth Weather]|r " .. text) end
+local function chat(text) print("|cff65cdd1[Weather Forever]|r " .. text) end
 local function isSecret(value)
     return type(issecretvalue) == "function" and issecretvalue(value)
 end
@@ -203,8 +203,17 @@ updateUI = function()
         exportBox:SetText("")
     end
     refreshZoneReports()
-    if shareNote then shareNote:SetText("Share in game: " .. ((AzerothWeatherDB and AzerothWeatherDB.peerSharing) and "ON" or "OFF")) end
+    if shareNote then
+        local on = AzerothWeatherDB and AzerothWeatherDB.peerSharing
+        shareNote:SetText("     Share with addon users: " .. (on and "ON" or "OFF"))
+        if shareDot then
+            shareDot:SetColorTexture(on and 1 or .35, on and .18 or .35, on and .18 or .35, 1)
+            if on then if not sharePulse:IsPlaying() then sharePulse:Play() end else sharePulse:Stop(); shareDot:SetAlpha(1) end
+        end
+    end
+    if partyButton then partyButton:SetText("Share party weather: " .. ((AzerothWeatherDB and AzerothWeatherDB.partyForecast) and "ON" or "OFF")) end
     if AzerothWeather_RefreshMap then pcall(AzerothWeather_RefreshMap) end
+    if AzerothWeather_RefreshPanelMap then pcall(AzerothWeather_RefreshPanelMap) end
 end
 local function saveObservation(weather, intensity, source)
     local zone, subzone, realm = getLocation()
@@ -216,7 +225,9 @@ local function saveObservation(weather, intensity, source)
     end
     if source == "manual" then lastManualAt = now end
     local record = {zone=zone, subzone=subzone, realm=realm, weather=weather, intensity=intensity, at=now, source=source, layer=inferredLayer}
+    local previous = current
     current = record
+    if source == "client" and AzerothWeather_PartyWeatherChanged then AzerothWeather_PartyWeatherChanged(previous, record) end
     local signature = table.concat({zone, subzone, realm, weather, tostring(intensity or ""), source, inferredLayer or ""}, "|")
     if source == "manual" or signature ~= lastSignature or now - lastSavedAt >= 300 then
         local log = AzerothWeatherDB.observations
@@ -312,7 +323,7 @@ local function createMinimapButton()
     end)
     button:SetScript("OnDragStop", function(self) self:SetScript("OnUpdate", nil); place() end)
     button:SetScript("OnEnter", function(self)
-        GameTooltip:SetOwner(self, "ANCHOR_LEFT"); GameTooltip:AddLine("Azeroth Weather Observatory", 1, 0.82, 0)
+        GameTooltip:SetOwner(self, "ANCHOR_LEFT"); GameTooltip:AddLine("Weather Forever", 1, 0.82, 0)
         if current then GameTooltip:AddLine(current.zone .. " · " .. current.weather, 1, 1, 1) else GameTooltip:AddLine("No current observation", 1, 1, 1) end
         GameTooltip:AddLine("Left-click: open or close", 0.7, 0.85, 0.9)
         GameTooltip:AddLine("Drag: move around minimap", 0.7, 0.85, 0.9); GameTooltip:Show()
@@ -327,15 +338,15 @@ local function sectionLine(parent, y)
 end
 local function createUI()
     frame = CreateFrame("Frame", "AzerothWeatherFrame", UIParent, "BackdropTemplate")
-    frame:SetSize(610, 590); frame:SetPoint("CENTER"); frame:SetFrameStrata("DIALOG")
+    frame:SetSize(610, 625); frame:SetPoint("CENTER"); frame:SetFrameStrata("DIALOG")
     frame:SetBackdrop({bgFile="Interface\\Buttons\\WHITE8X8", edgeFile="Interface\\Buttons\\WHITE8X8", edgeSize=1})
     frame:SetBackdropColor(.025,.075,.12,.98); frame:SetBackdropBorderColor(.25,.48,.57,1)
     frame:SetMovable(true); frame:EnableMouse(true); frame:RegisterForDrag("LeftButton")
     frame:SetScript("OnDragStart", frame.StartMoving); frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
     local icon=frame:CreateTexture(nil,"ARTWORK"); icon:SetTexture("Interface\\Icons\\INV_Misc_Spyglass_03"); icon:SetSize(30,30); icon:SetPoint("TOPLEFT",22,-17)
-    local title=frame:CreateFontString(nil,"OVERLAY","GameFontHighlightLarge"); title:SetPoint("TOPLEFT",62,-19); title:SetText("AZEROTH WEATHER"); title:SetTextColor(.85,.94,1)
+    local title=frame:CreateFontString(nil,"OVERLAY","GameFontHighlightLarge"); title:SetPoint("TOPLEFT",62,-19); title:SetText("WEATHER FOREVER"); title:SetTextColor(.85,.94,1)
     local close=CreateFrame("Button",nil,frame,"UIPanelCloseButton"); close:SetPoint("TOPRIGHT",-4,-3)
-    local subtitle=frame:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall"); subtitle:SetPoint("TOPLEFT",63,-40); subtitle:SetText("Weather reports from across Azeroth · /awo map toggles map markers"); subtitle:SetTextColor(.55,.75,.82)
+    local subtitle=frame:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall"); subtitle:SetPoint("TOPLEFT",63,-40); subtitle:SetText("Weather reports from across Azeroth · /weather map toggles map markers"); subtitle:SetTextColor(.55,.75,.82)
     sectionLine(frame,-58)
     local weatherPanel=frame:CreateTexture(nil,"BACKGROUND"); weatherPanel:SetPoint("TOPLEFT",24,-65); weatherPanel:SetSize(562,71); weatherPanel:SetColorTexture(.07,.20,.27,.95)
     local accent=frame:CreateTexture(nil,"ARTWORK"); accent:SetPoint("TOPLEFT",24,-65); accent:SetSize(3,71); accent:SetColorTexture(.40,.78,.83,1)
@@ -412,28 +423,50 @@ local function createUI()
     for i, option in ipairs({{"Clear","clear"},{"Rain","rain"},{"Snow","snow"},{"Sand","sandstorm"},{"Misc","miscellaneous"}}) do
         local weather=option[2]; local b=addButton(frame,weatherIcons[weather] .. " " .. option[1],52,331+(i-1)*52,-499,function() reportWeather(weather) end)
     end
-    shareNote=addButton(frame,"Share in game: OFF",195,25,-535,function() if AzerothWeather_ToggleSharing then AzerothWeather_ToggleSharing() else chat("In-game sharing is unavailable.") end end)
-    shareNote:SetScript("OnEnter",function(self) self:SetBackdropColor(.14,.32,.39,1); GameTooltip:SetOwner(self,"ANCHOR_RIGHT"); GameTooltip:AddLine("In-game sharing",1,.82,0); GameTooltip:AddLine("Shares weather with your guild and group. The game identifies your character to recipients.",1,1,1,true); GameTooltip:Show() end)
+    shareNote=addButton(frame,"Share with addon users: OFF",205,25,-535,function() if AzerothWeather_ToggleSharing then AzerothWeather_ToggleSharing() else chat("In-game sharing is unavailable.") end end)
+    shareDot=shareNote:CreateTexture(nil,"OVERLAY"); shareDot:SetSize(8,8); shareDot:SetPoint("LEFT",9,0); local mask=shareNote:CreateMaskTexture(); if mask then mask:SetTexture("Interface/CharacterFrame/TempPortraitAlphaMask", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE"); mask:SetAllPoints(shareDot); shareDot:AddMaskTexture(mask) end
+    sharePulse=shareDot:CreateAnimationGroup(); sharePulse:SetLooping("BOUNCE"); local fade=sharePulse:CreateAnimation("Alpha"); fade:SetFromAlpha(1); fade:SetToAlpha(.3); fade:SetDuration(.8)
+    shareNote:SetScript("OnEnter",function(self) self:SetBackdropColor(.14,.32,.39,1); GameTooltip:SetOwner(self,"ANCHOR_RIGHT"); GameTooltip:AddLine("Share with addon users",1,.82,0); GameTooltip:AddLine("Exchange hidden weather and estimated layer reports with Weather Forever users in your party, raid and guild. Your character name is visible to recipients. Delivery depends on game restrictions.",1,1,1,true); GameTooltip:Show() end)
     shareNote:SetScript("OnLeave",function(self) self:SetBackdropColor(.09,.22,.29,.95); GameTooltip:Hide() end)
+    partyButton=addButton(frame,"Share party weather: OFF",175,240,-535,function()
+        if AzerothWeather_TogglePartyForecast then message=AzerothWeather_TogglePartyForecast(current); chat(message); updateUI() end
+    end)
+    partyButton:SetScript("OnEnter",function(self) self:SetBackdropColor(.14,.32,.39,1); GameTooltip:SetOwner(self,"ANCHOR_RIGHT"); GameTooltip:AddLine("Share Weather With Party",1,.82,0); GameTooltip:AddLine("Turn on flavorful visible party or raid forecasts when the weather changes. Your realm may require you to press Enter to send chat.",1,1,1,true); GameTooltip:Show() end)
+    partyButton:SetScript("OnLeave",function(self) self:SetBackdropColor(.09,.22,.29,.95); GameTooltip:Hide() end)
     addButton(frame,"Share manually",130,450,-535,function()
         if not current then message="No weather report to copy yet."; updateUI(); return end
         exportBox:Show(); message="Press Ctrl+C (Mac: Command+C), then paste on the website."; updateUI(); exportBox:SetFocus(); exportBox:HighlightText()
     end)
-    exportBox=CreateFrame("EditBox",nil,frame,"InputBoxTemplate"); exportBox:SetSize(545,22); exportBox:SetPoint("TOPLEFT",30,-560); exportBox:SetAutoFocus(false); exportBox:SetMaxLetters(0); exportBox:Hide()
+    StaticPopupDialogs["WEATHER_FOREVER_SEND_REPORTS"] = {
+        text="This will reload your UI to save your reports. If the Weather Forever companion is running, it will send eligible unsent reports automatically after the reload.",
+        button1="Reload UI", button2="Cancel", timeout=0, whileDead=true, hideOnEscape=true,
+        OnAccept=function()
+            if C_UI and type(C_UI.Reload)=="function" then C_UI.Reload()
+            elseif type(ReloadUI)=="function" then ReloadUI()
+            else chat("Reload is unavailable. Type /reload to save your reports.") end
+        end,
+    }
+    local sendButton=addButton(frame,"Send reports to website",200,25,-565,function() StaticPopup_Show("WEATHER_FOREVER_SEND_REPORTS") end)
+    sendButton:SetScript("OnEnter",function(self) self:SetBackdropColor(.14,.32,.39,1); GameTooltip:SetOwner(self,"ANCHOR_RIGHT"); GameTooltip:AddLine("Send reports to website",1,.82,0); GameTooltip:AddLine("Reloads the UI so the running companion can send eligible unsent reports. The companion must be installed, running, and online.",1,1,1,true); GameTooltip:Show() end)
+    sendButton:SetScript("OnLeave",function(self) self:SetBackdropColor(.09,.22,.29,.95); GameTooltip:Hide() end)
+    exportBox=CreateFrame("EditBox",nil,frame,"InputBoxTemplate"); exportBox:SetSize(325,22); exportBox:SetPoint("TOPLEFT",250,-568); exportBox:SetAutoFocus(false); exportBox:SetMaxLetters(0); exportBox:Hide()
+    if AzerothWeather_CreatePanelMap then AzerothWeather_CreatePanelMap(frame) end
     frame:Hide(); updateUI(); createMinimapButton()
 end
 SLASH_AZEROTHWEATHER1 = "/awo"
+SLASH_AZEROTHWEATHER2 = "/weather"
+SLASH_AZEROTHWEATHER3 = "/wf"
 SlashCmdList.AZEROTHWEATHER = function(input)
     input = (input or ""):lower():match("^%s*(.-)%s*$")
     if input == "refresh" then observe(); chat(message)
     elseif input == "minimap" then
         AzerothWeatherDB.minimapHidden = not AzerothWeatherDB.minimapHidden
         if minimapButton then if AzerothWeatherDB.minimapHidden then minimapButton:Hide() else minimapButton:Show() end end
-        chat(AzerothWeatherDB.minimapHidden and "Minimap button hidden. Use /awo minimap to show it." or "Minimap button shown.")
+        chat(AzerothWeatherDB.minimapHidden and "Minimap button hidden. Use /weather minimap to show it." or "Minimap button shown.")
     elseif input == "export" then frame:Show(); exportBox:Show(); exportBox:SetFocus(); exportBox:HighlightText(); chat("Copy the selected report with Ctrl+C.")
     elseif input == "share" then if AzerothWeather_ToggleSharing then AzerothWeather_ToggleSharing() else chat("In-game sharing is unavailable.") end
     elseif input == "map" then if AzerothWeather_ToggleMap then AzerothWeather_ToggleMap() else chat("Weather map is not available yet.") end
-    elseif input == "help" then chat("/awo opens the report; /awo refresh checks the client; /awo minimap shows or hides the button; /awo map toggles map markers; /awo share toggles in-game sharing.")
+    elseif input == "help" then chat("/weather or /wf opens the report; /weather refresh checks the client; /weather minimap shows or hides the button; /weather map toggles map markers; /weather share toggles in-game sharing.")
     else toggleWindow() end
 end
 events:RegisterEvent("ADDON_LOADED")
@@ -449,7 +482,7 @@ events:SetScript("OnEvent", function(_, event, arg)
     if event == "ADDON_LOADED" and arg == ADDON then
         if type(AzerothWeatherDB) ~= "table" then AzerothWeatherDB = {} end
         if type(AzerothWeatherDB.observations) ~= "table" then AzerothWeatherDB.observations = {} end
-        createUI(); ready = true; chat("Loaded. Type /awo for your weather report.")
+        createUI(); ready = true; chat("Loaded. Type /weather for your weather report.")
     elseif ready and event ~= "ADDON_LOADED" then
         if event=="NAME_PLATE_UNIT_ADDED" then sampleLayer(arg)
         elseif event=="PLAYER_TARGET_CHANGED" then sampleLayer("target")
