@@ -4,8 +4,8 @@ import tkinter as tk
 from tkinter import messagebox
 import companion
 
-APP_VERSION='0.11.1'
-APP_RELEASE_DATE='2026-11-09'
+APP_VERSION='0.11.2'
+APP_RELEASE_DATE='2026-11-10'
 VERSION_URL='https://weather.craftingworlds.com/api/version'
 DOWNLOAD_URL='https://weather.craftingworlds.com/#contribute'
 APP_NAME='AzerothWeatherApp.exe'
@@ -88,15 +88,32 @@ def add_version_info(parent, window):
     link=tk.Label(parent,text='Downloads and release notes ↗',bg='#092b3d',fg='#9fd2da',font=('Segoe UI',9,'underline'),cursor='hand2')
     link.pack(anchor='w',pady=(2,0)); link.bind('<Button-1>',lambda event: webbrowser.open(DOWNLOAD_URL))
 
+def configure_window(window, geometry):
+    # A dedicated app identity lets Windows display the companion icon in the taskbar.
+    try:
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID('CraftingWorlds.WeatherForever.Companion')
+    except (AttributeError, OSError):
+        pass
+    icon_root=pathlib.Path(getattr(sys, '_MEIPASS', pathlib.Path(__file__).resolve().parent))
+    icon=icon_root/'weather-rain.ico'
+    if icon.is_file():
+        try: window.iconbitmap(default=str(icon))
+        except tk.TclError: pass
+    window.title('Weather Forever Companion')
+    window.geometry(geometry)
+    window.resizable(True,True)
+    window.minsize(*map(int,geometry.split('x')))
+    window.configure(bg='#092b3d')
+
 def running_window():
     # The worker belongs to this visible window: closing it ends the worker too.
-    window=tk.Tk(); window.title('Azeroth Weather Companion'); window.geometry('510x370'); window.resizable(False,False); window.configure(bg='#092b3d')
+    window=tk.Tk(); configure_window(window,'510x370')
     body=tk.Frame(window,bg='#092b3d',padx=28,pady=24); body.pack(fill='both',expand=True)
-    tk.Label(body,text='AZEROTH WEATHER',bg='#092b3d',fg='#e6f2ed',font=('Segoe UI',18,'bold')).pack(anchor='w')
+    tk.Label(body,text='WEATHER FOREVER',bg='#092b3d',fg='#e6f2ed',font=('Segoe UI',18,'bold')).pack(anchor='w')
     tk.Label(body,text='Companion for Windows',bg='#092b3d',fg='#9fd2da',font=('Segoe UI',11)).pack(anchor='w',pady=(0,18))
     status=tk.StringVar(value='Weather sharing is running')
     tk.Label(body,textvariable=status,bg='#092b3d',fg='#a8e0cf',font=('Segoe UI',12,'bold'),wraplength=450,justify='left').pack(anchor='w')
-    tk.Label(body,text='Your reports are shared after you reload or log out of WoW. Keep this window open while you want to share.',bg='#092b3d',fg='#d0e1e3',font=('Segoe UI',10),wraplength=450,justify='left').pack(anchor='w',pady=(12,16))
+    tk.Label(body,text='Your reports are shared after you reload or log out of WoW. Minimize this window to the taskbar while sharing; closing it stops sharing.',bg='#092b3d',fg='#d0e1e3',font=('Segoe UI',10),wraplength=450,justify='left').pack(anchor='w',pady=(12,16))
     add_version_info(body,window)
     errors=queue.Queue()
     def worker():
@@ -131,9 +148,9 @@ def main():
     if '--check-package' in sys.argv:
         assert callable(companion.main)
         return
-    window=tk.Tk(); window.title('Azeroth Weather Companion'); window.geometry('520x460'); window.resizable(False,False); window.configure(bg='#092b3d')
+    window=tk.Tk(); configure_window(window,'520x460')
     body=tk.Frame(window,bg='#092b3d',padx=28,pady=20); body.pack(fill='both',expand=True)
-    tk.Label(body,text='AZEROTH WEATHER',bg='#092b3d',fg='#e6f2ed',font=('Segoe UI',18,'bold')).pack(anchor='w')
+    tk.Label(body,text='WEATHER FOREVER',bg='#092b3d',fg='#e6f2ed',font=('Segoe UI',18,'bold')).pack(anchor='w')
     tk.Label(body,text='Companion for Windows',bg='#092b3d',fg='#9fd2da',font=('Segoe UI',11)).pack(anchor='w',pady=(0,16))
     info=('Share weather reports automatically after you reload or log out of WoW. Community reports update when you reload.\n\n'
           'Installing enables public sharing of weather, zone, realm, estimated layer, time, source, optional intensity and a random installation ID. '
