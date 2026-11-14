@@ -2,7 +2,7 @@
 ## Title: Weather Forever
 ## Notes: Local weather observations and manual reports for WoW Forever.
 ## Author: Crafting Worlds
-## Version: 0.13.6
+## Version: 0.13.7
 ## IconTexture: Interface\Icons\INV_Misc_Spyglass_03
 ## OptionalDeps: EllesmereUI
 ## SavedVariables: AzerothWeatherDB

@@ -301,27 +301,62 @@ local function createMinimapButton()
     icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
     local border = button:CreateTexture(nil, "OVERLAY")
     border:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder"); border:SetSize(54, 54); border:SetPoint("TOPLEFT", -1, 1)
-    local function place()
-        local degrees = tonumber(AzerothWeatherDB.minimapAngle) or 225
-        local angle = math.rad(degrees)
-        local radius = math.max(Minimap:GetWidth(), Minimap:GetHeight()) / 2 + 5
-        button:ClearAllPoints(); button:SetPoint("CENTER", Minimap, "CENTER", math.cos(angle)*radius, math.sin(angle)*radius)
+    -- Shape providers may be supplied by minimap addons; unsupported shapes fall back to round.
+    local shapes={
+        ROUND={true,true,true,true}, SQUARE={false,false,false,false},
+        ["CORNER-TOPLEFT"]={true,false,false,false}, ["CORNER-TOPRIGHT"]={false,false,true,false},
+        ["CORNER-BOTTOMLEFT"]={false,true,false,false}, ["CORNER-BOTTOMRIGHT"]={false,false,false,true},
+        ["SIDE-LEFT"]={true,true,false,false}, ["SIDE-RIGHT"]={false,false,true,true},
+        ["SIDE-TOP"]={true,false,true,false}, ["SIDE-BOTTOM"]={false,true,false,true},
+        ["TRICORNER-TOPLEFT"]={true,true,true,false}, ["TRICORNER-TOPRIGHT"]={true,false,true,true},
+        ["TRICORNER-BOTTOMLEFT"]={true,true,false,true}, ["TRICORNER-BOTTOMRIGHT"]={false,true,true,true},
+    }
+    local function currentShape()
+        if type(GetMinimapShape)=="function" then
+            local ok, value=pcall(GetMinimapShape)
+            if ok and type(value)=="string" and shapes[value] then return value end
+        end
+        return "ROUND"
     end
-    local moved = false
-    button:SetScript("OnMouseDown", function() moved = false end)
-    button:SetScript("OnClick", function() if not moved then toggleWindow() end end)
-    button:SetScript("OnDragStart", function(self)
-        moved = true
-        self:SetScript("OnUpdate", function()
-            local cx, cy = Minimap:GetCenter()
-            local scale = Minimap:GetEffectiveScale()
-            if not cx or not cy or not scale or scale == 0 then return end
-            local x, y = GetCursorPosition(); x, y = x / scale - cx, y / scale - cy
-            AzerothWeatherDB.minimapAngle = math.deg(math.atan2(y, x))
-            place()
-        end)
+    local function place()
+        local angle=math.rad(tonumber(AzerothWeatherDB.minimapAngle) or 225)
+        local x,y=math.cos(angle),math.sin(angle)
+        local rx,ry=Minimap:GetWidth()/2+5,Minimap:GetHeight()/2+5
+        local quadrant=1+(x<0 and 1 or 0)+(y>0 and 2 or 0)
+        if shapes[currentShape()][quadrant] then
+            x,y=x*rx,y*ry
+        else
+            local factor=math.min(rx/math.max(math.abs(x),0.000001),ry/math.max(math.abs(y),0.000001))
+            x,y=x*factor,y*factor
+        end
+        button:ClearAllPoints(); button:SetPoint("CENTER",Minimap,"CENTER",x,y)
+    end
+    local moved, dragging, elapsed = false, false, 0
+    local previousShape, previousWidth, previousHeight
+    button:SetScript("OnMouseDown",function() moved=false end)
+    button:SetScript("OnClick",function() if not moved then toggleWindow() end end)
+    button:SetScript("OnDragStart",function() moved=true; dragging=true end)
+    button:SetScript("OnDragStop",function() dragging=false; place() end)
+    button:SetScript("OnUpdate",function(self,delta)
+        if dragging then
+            local cx,cy=Minimap:GetCenter()
+            local scale=Minimap:GetEffectiveScale()
+            if cx and cy and scale and scale~=0 then
+                local x,y=GetCursorPosition(); x,y=x/scale-cx,y/scale-cy
+                AzerothWeatherDB.minimapAngle=math.deg(math.atan2(y,x))
+                place()
+            end
+        end
+        elapsed=elapsed+(delta or 0)
+        if elapsed>=0.5 then
+            elapsed=0
+            local shape,width,height=currentShape(),Minimap:GetWidth(),Minimap:GetHeight()
+            if shape~=previousShape or width~=previousWidth or height~=previousHeight then
+                previousShape,previousWidth,previousHeight=shape,width,height
+                place()
+            end
+        end
     end)
-    button:SetScript("OnDragStop", function(self) self:SetScript("OnUpdate", nil); place() end)
     button:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_LEFT"); GameTooltip:AddLine("Weather Forever", 1, 0.82, 0)
         if current then GameTooltip:AddLine(current.zone .. " · " .. current.weather, 1, 1, 1) else GameTooltip:AddLine("No current observation", 1, 1, 1) end
